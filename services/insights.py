@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from docx import Document
 from sqlalchemy.orm import Session
@@ -119,32 +118,6 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
     db.commit()
 
     return {
-        "status": "ingestion complete",
         "num_files": len(files),
         "insights": insights,
     }
-
-
-if __name__ == "__main__":
-    from database import engine, Base, get_db
-
-    # Create database if it doesn't exist
-    Base.metadata.create_all(bind=engine)
-
-    db = get_db().__next__()  # Database session for testing
-
-    # For testing
-    for folder in [
-        "Company_A",
-        "Company_B",
-        "Company_C",
-    ]:
-        print("\n" + "=" * 50 + "\n")
-        test_folder = f"{os.getcwd()}/data/{folder}"
-        get_folder_insights(test_folder, db)
-
-    # Check database entries
-    print("\n" + "=" * 50 + "\n")
-    print("Database entries:")
-    for doc in db.query(Doc).all():
-        print(doc)
