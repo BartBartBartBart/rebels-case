@@ -1,5 +1,7 @@
 from transformers import pipeline
 from abc import ABC, abstractmethod
+from google import genai
+from google.genai import types
 
 
 class BaseClassifier(ABC):
@@ -21,7 +23,7 @@ class ZeroShotClassifier(BaseClassifier):
     - Fast inference
 
     Disadvantages:
-    - Pre-determined set of labels
+    - Requires predetermined set of labels
     - Lower quality labels
     """
 
@@ -87,7 +89,7 @@ class Phi4MiniClassifier(BaseClassifier):
     Uses the Phi-4-mini-instruct LLM from Huggingface to classify documents.
 
     Advantages:
-    - No pre-determined set of labels (flexibility)
+    - No predetermined set of labels (flexibility)
     - Generally accurate labels
 
     Disadvantages:
@@ -184,6 +186,69 @@ class Phi4MiniClassifier(BaseClassifier):
         return [r[0]["generated_text"].strip() for r in response]
 
 
+class GeminiClassifier(BaseClassifier):
+    """
+    Uses the Gemini API to classify documents.
+
+    Advantages:
+    - High quality labels
+    - No predetermined set of labels (flexibility)
+    - Reasonably fast
+    - No need to download model checkpoints memory
+    - Generous free tier
+
+    Disadvantages:
+    - Quota for free tier
+    - Batched calls only for certain models (not implemented here currently)
+    """
+
+    def __init__(self):
+        self.client = genai.Client()
+
+    def classify(self, text: str) -> str:
+        """
+        Classify a single document using gemini-3.1-flash-lite-preview
+        through their API.
+
+        Args:
+            text (str): The text to be classified.
+        Returns:
+            str: The generated label for the given text.
+        """
+
+        prompt = f"Answer with only the label in english\n\n." f"Document:\n{text}"
+
+        config = types.GenerateContentConfig(
+            system_instruction="You are a helpful assistant for classifying documents.",
+            maxOutputTokens=20,
+        )
+
+        response = self.client.models.generate_content(
+            model="gemini-3.1-flash-lite-preview",
+            config=config,
+            contents=prompt,
+        )
+
+        return response.text
+
+    def classify_batch(self, texts: list[str]) -> list[str]:
+        """
+        A workaround for batched API calls. Does a single API call for each
+        text.
+
+        Args:
+            texts (list(str)): A list of texts to be classified.
+        Returns:
+            labels (list(str)): A list containing labels for each text.
+        """
+
+        labels = []
+        for text in texts:
+            labels.append(self.classify(text))
+
+        return labels
+
+
 def get_classifier(type: str) -> BaseClassifier:
     """
     Helper function to load the correct classifier.
@@ -199,6 +264,8 @@ def get_classifier(type: str) -> BaseClassifier:
         return ZeroShotClassifier()
     elif type == "phi4":
         return Phi4MiniClassifier()
+    elif type == "gemini":
+        return GeminiClassifier()
     else:
         raise ValueError(
             f"{type} is not a valid classifier."

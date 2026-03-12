@@ -166,8 +166,8 @@ def get_folder_classifications(
             else:
                 already_classified[filename] = doc_entry.label
                 print(
-                    f"Document {filename} already classified as {doc_entry.label}"
-                    f"skipping classification."
+                    f"Document {filename} already classified as {doc_entry.label}. "
+                    f"Skipping classification."
                 )
         elif not overwrite:
             # New document, classify and add without metadata
@@ -180,12 +180,10 @@ def get_folder_classifications(
             texts.append(text)
 
     # Single pass w/ batching
-    pred_labels = classifier.classify_batch(texts)
-    print(f"Batch: {pred_labels}")
-
-    # Check no batching too
-    single_classification = classifier.classify(texts[0])
-    print(f"single: {single_classification}")
+    if len(texts) > 0:
+        pred_labels = classifier.classify_batch(texts)
+    else:
+        pred_labels = []
 
     for file, label in zip(filenames, pred_labels):
         upsert_doc_metadata(db, {"filename": file, "label": label})
