@@ -3,6 +3,7 @@ from docx import Document
 from sqlalchemy.orm import Session
 
 from db_model import Doc
+from services.classifier import BaseClassifier
 
 
 def scan_folder(folder_path: str) -> list[Document]:
@@ -13,7 +14,7 @@ def scan_folder(folder_path: str) -> list[Document]:
         folder_path (str): The path to the folder to be scanned.
     Returns:
         List[Document]: A list of Document objects representing the .docx
-        files found in the folder.
+            files found in the folder.
     """
     files = []
 
@@ -41,7 +42,7 @@ def upsert_doc_metadata(db: Session, metadata: dict):
     Args:
         db (Session): The database session to use for the operation.
         metadata (dict): A dictionary containing the document metadata to be
-        upserted.
+            upserted.
     """
     existing_doc = db.query(Doc).filter(Doc.filename == metadata["filename"]).first()
 
@@ -64,7 +65,7 @@ def extract_metadata(doc: Document, file_path: str) -> dict:
     Args:
         doc (Document): The Document object to extract metadata from.
         file_path (str): The file path of the document, used to extract
-        filename and file type.
+            filename and file type.
     Returns:
         dict: A dictionary containing the extracted metadata.
     """
@@ -94,13 +95,13 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
 
     Args:
         folder_path (str): The path to the folder containing
-        the documents to be ingested.
+            the documents to be ingested.
         db (Session): The database session to use for storing
-        the metadata.
+            the metadata.
     Returns:
         dict: A dictionary containing the status of the ingestion
-        process, the number of files ingested, and insights about
-        the ingested documents.
+            process, the number of files ingested, and insights about
+            the ingested documents.
     """
 
     print(f"Ingesting documents from folder: {folder_path}")
@@ -120,4 +121,81 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
     return {
         "num_files": len(files),
         "insights": insights,
+    }
+
+
+def get_folder_classifications(
+    classifier: BaseClassifier, folder_path: str, overwrite: bool, db: Session
+) -> dict:
+    """
+    Finds all .docx files in the folder and performs document classification
+    using the given classifier in batches. Does not classify if a label
+    already exists in the database.
+
+    Args:
+        classifier (BaseClassifier): A document classifier. Can either
+            be a zero-shot classifier from HF or Phi-4-mini-instruct from HF.
+        folder_path (str): The path for the folder.
+        overwrite (bool): A boolean denoting whether to perform classification
+            on perviously classified documents (for debugging mostly).
+        db (Session): The session for the database.
+    Returns:
+        dict: A dictionary containing the number of classified files,
+            a dictionary of all newly classified files and their labels, and
+            a dictionary of all files in the directory that were already labelled.
+    """
+
+    print(f"Classifying documents in folder: {folder_path}")
+
+    # Find all files in folder
+    files = scan_folder(folder_path)
+    filenames = []
+    texts = []
+    already_classified = {}
+
+    for file in files:
+        filename = Path(file[1]).name
+        doc_entry = db.query(Doc).filter(Doc.filename == filename).first()
+
+        if not overwrite and doc_entry:
+            if doc_entry.label == "unlabeled":
+                text = "\n".join(p.text for p in file[0].paragraphs)
+                filenames.append(filename)
+                texts.append(text)
+                pass
+            else:
+                already_classified[filename] = doc_entry.label
+                print(
+                    f"Document {filename} already classified as {doc_entry.label}"
+                    f"skipping classification."
+                )
+        elif not overwrite:
+            # New document, classify and add without metadata
+            text = "\n".join(p.text for p in file[0].paragraphs)
+            filenames.append(filename)
+            texts.append(text)
+        else:
+            text = "\n".join(p.text for p in file[0].paragraphs)
+            filenames.append(filename)
+            texts.append(text)
+
+    # Single pass w/ batching
+    pred_labels = classifier.classify_batch(texts)
+    print(f"Batch: {pred_labels}")
+
+    # Check no batching too
+    single_classification = classifier.classify(texts[0])
+    print(f"single: {single_classification}")
+
+    for file, label in zip(filenames, pred_labels):
+        upsert_doc_metadata(db, {"filename": file, "label": label})
+
+    db.commit()
+
+    return {
+        "num_files": len(files),
+        "new_classifications": {
+            filename: label for filename, label in zip(filenames, pred_labels)
+        },
+        "already_classified": already_classified,
     }
