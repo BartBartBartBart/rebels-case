@@ -1,12 +1,36 @@
 from pathlib import Path
 from docx import Document
+from pypdf import PdfReader
+from datetime import datetime
+import langdetect
 from sqlalchemy.orm import Session
 
 from db_model import Doc
 from services.classifier import BaseClassifier
 
 
-def scan_folder(folder_path: str) -> list[Document]:
+def read(file: Path) -> str:
+    """
+    Extracts the text from .docx, .pdf and .txt files.
+
+    Args:
+        file (Path): Path leading to the file.
+    Returns:
+        str: Contents of the file.
+    """
+
+    if file.suffix.lower() == ".docx":
+        return " ".join([p.text for p in Document(file).paragraphs])
+    elif file.suffix.lower() == ".pdf":
+        reader = PdfReader(file)
+        return " ".join([page.extract_text() for page in reader.pages])
+    elif file.suffix.lower() == ".txt":
+        return file.read_text(encoding="utf-8")
+    else:
+        raise ValueError(f"Can't read unsupported file {file.suffix.lower()}.")
+
+
+def scan_folder(folder_path: str) -> list[Path]:
     """
     Recursively extract all .docx files in the specified folder path.
 
@@ -16,19 +40,20 @@ def scan_folder(folder_path: str) -> list[Document]:
         List[Document]: A list of Document objects representing the .docx
             files found in the folder.
     """
+    supported_files = [".docx", ".pdf", ".txt"]
     files = []
 
-    # Recursively scan for .docx files in dir and subdirs
+    # Recursively scan for files in dir and subdirs
     for file in Path(folder_path).rglob("*.*"):
-
+        print(file)
         # Docx files
-        if file.is_file() and file.suffix == ".docx":
+        if file.is_file() and file.suffix.lower() in supported_files:
             print(f"Found document: {file}")
-            files.append((Document(file), file))
+            files.append(file)
 
         # Other files
         elif file.is_file():
-            print(f"Skipping non-docx file: {file}")
+            print(f"Skipping unsupported file: {file}")
 
     return files
 
@@ -58,7 +83,81 @@ def upsert_doc_metadata(db: Session, metadata: dict):
         print(f"Added new document: {metadata['filename']}")
 
 
-def extract_metadata(doc: Document, file_path: str) -> dict:
+def extract_docx(file: Path) -> dict:
+    """
+    Extract metadata from .docx files.
+
+    Args:
+        file (Path): Path leading to .docx file.
+    Returns:
+        dict: Dictionary containing metadata.
+    """
+
+    doc = Document(file)
+    props = doc.core_properties
+    words = [p.text for p in doc.paragraphs]
+
+    return {
+        "author": props.author,
+        "created": props.created,
+        "modified": props.modified,
+        "language": langdetect.detect(" ".join(words)) if words else None,
+        "paragraph_count": len(doc.paragraphs),
+        "table_count": len(doc.tables),
+        "section_count": len(doc.sections),
+        "word_count": len(words),
+    }
+
+
+def extract_pdf(file: Path) -> dict:
+    """
+    Extract metadata from .pdf files.
+
+    Args:
+        file (Path): Path leading to .pdf file.
+    Returns:
+        dict: Dictionary containing metadata.
+    """
+
+    reader = PdfReader(file)
+    words = [page.extract_text() for page in reader.pages]
+
+    return {
+        "author": reader.metadata.author,
+        "title": reader.metadata.title,
+        "created": reader.metadata.creation_date,
+        "modified": reader.metadata.modification_date,
+        "keywords": "".join(reader.metadata.keywords or []),
+        "subject": reader.metadata.subject,
+        "language": langdetect.detect(" ".join(words)) if words else None,
+        "created_with": reader.metadata.creator,
+        "word_count": len(words),
+    }
+
+
+def extract_txt(file: Path) -> dict:
+    """
+    Extract metadata from .txt files.
+
+    Args:
+        file (Path): Path leading to .txt file.
+    Returns:
+        dict: Dictionary containing metadata.
+    """
+
+    stat = file.stat()
+    text = file.read_text(encoding="utf-8")
+    words = text.split()
+
+    return {
+        "created": datetime.fromtimestamp(stat.st_ctime),
+        "modified": datetime.fromtimestamp(stat.st_mtime),
+        "word_count": len(words),
+        "language": langdetect.detect(" ".join(words) if words else None),
+    }
+
+
+def extract_metadata(file: Path) -> dict:
     """
     Extract metadata from a Document object.
 
@@ -69,19 +168,22 @@ def extract_metadata(doc: Document, file_path: str) -> dict:
     Returns:
         dict: A dictionary containing the extracted metadata.
     """
-    props = doc.core_properties
+
     metadata = {
-        "filename": Path(file_path).name,
-        "author": props.author,
-        "created": props.created,
-        "modified": props.modified,
-        "file_type": Path(file_path).suffix,
-        "file_size": Path(file_path).stat().st_size,
-        "paragraph_count": len(doc.paragraphs),
-        "table_count": len(doc.tables),
-        "section_count": len(doc.sections),
-        "word_count": sum(len(p.text.split()) for p in doc.paragraphs),
+        "filename": Path(file).name,
+        "file_type": Path(file).suffix,
+        "file_size": Path(file).stat().st_size,
     }
+
+    if file.suffix.lower() == ".docx":
+        metadata.update(extract_docx(file))
+    elif file.suffix.lower() == ".pdf":
+        metadata.update(extract_pdf(file))
+    elif file.suffix.lower() == ".txt":
+        metadata.update(extract_txt(file))
+
+    # Ensure we never store empty values for any file type.
+    metadata = {k: v for k, v in metadata.items() if v is not None and v != ""}
 
     return metadata
 
@@ -111,8 +213,8 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
 
     # Extract metadata and save to database
     insights = {}
-    for file, file_path in files:
-        metadata = extract_metadata(file, file_path=file_path)
+    for file in files:
+        metadata = extract_metadata(file=file)
         upsert_doc_metadata(db, metadata)
         insights[metadata["filename"]] = metadata
 
@@ -154,15 +256,13 @@ def get_folder_classifications(
     already_classified = {}
 
     for file in files:
-        filename = Path(file[1]).name
+        filename = Path(file).name
         doc_entry = db.query(Doc).filter(Doc.filename == filename).first()
 
         if not overwrite and doc_entry:
             if doc_entry.label == "unlabeled":
-                text = "\n".join(p.text for p in file[0].paragraphs)
                 filenames.append(filename)
-                texts.append(text)
-                pass
+                texts.append(read(file))
             else:
                 already_classified[filename] = doc_entry.label
                 print(
@@ -171,13 +271,11 @@ def get_folder_classifications(
                 )
         elif not overwrite:
             # New document, classify and add without metadata
-            text = "\n".join(p.text for p in file[0].paragraphs)
             filenames.append(filename)
-            texts.append(text)
+            texts.append(read(file))
         else:
-            text = "\n".join(p.text for p in file[0].paragraphs)
             filenames.append(filename)
-            texts.append(text)
+            texts.append(read(file))
 
     # Single pass w/ batching
     if len(texts) > 0:
@@ -185,8 +283,8 @@ def get_folder_classifications(
     else:
         pred_labels = []
 
-    for file, label in zip(filenames, pred_labels):
-        upsert_doc_metadata(db, {"filename": file, "label": label})
+    for filename, label in zip(filenames, pred_labels):
+        upsert_doc_metadata(db, {"filename": filename, "label": label})
 
     db.commit()
 
