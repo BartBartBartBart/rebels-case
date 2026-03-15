@@ -95,7 +95,9 @@ def extract_docx(file: Path) -> dict:
 
     doc = Document(file)
     props = doc.core_properties
-    words = [p.text for p in doc.paragraphs]
+    words = []
+    for p in doc.paragraphs:
+        words.extend(p.text.split(" "))
 
     return {
         "author": props.author,
@@ -120,7 +122,9 @@ def extract_pdf(file: Path) -> dict:
     """
 
     reader = PdfReader(file)
-    words = [page.extract_text() for page in reader.pages]
+    words = []
+    for page in reader.pages:
+        words.extend(page.extract_text().split(" "))
 
     return {
         "author": reader.metadata.author,
@@ -214,8 +218,22 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
     # Extract metadata and save to database
     insights = {}
     for file in files:
-        metadata = extract_metadata(file=file)
-        upsert_doc_metadata(db, metadata)
+        filename = Path(file).name
+        doc_entry = db.query(Doc).filter(Doc.filename == filename).first()
+
+        if doc_entry:
+            # Extract metadata from database instead
+            print("Extracting metadata from database.")
+            metadata = {}
+            for col in Doc.__table__.columns:
+                if getattr(doc_entry, col.name) is not None:
+                    metadata[col.name] = getattr(doc_entry, col.name)
+        else:
+            # Extract metadata from file
+            print("Extracting metadata from file.")
+            metadata = extract_metadata(file=file)
+            upsert_doc_metadata(db, metadata)
+
         insights[metadata["filename"]] = metadata
 
     db.commit()
