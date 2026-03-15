@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from dotenv import load_dotenv
 import os
 
 from database import engine, Base, get_db
@@ -11,7 +10,6 @@ from services.classifier import get_classifier
 Base.metadata.create_all(bind=engine)
 
 # Instantiate model on startup
-load_dotenv()
 classifier = get_classifier(
     type=os.getenv("CLASSIFIER", "zero-shot")  # Default is zero-shot
 )

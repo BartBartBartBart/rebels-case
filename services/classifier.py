@@ -1,7 +1,6 @@
 from transformers import pipeline
 from abc import ABC, abstractmethod
-from google import genai
-from google.genai import types
+from google.genai import types, Client
 
 
 class BaseClassifier(ABC):
@@ -174,9 +173,8 @@ class Phi4MiniClassifier(BaseClassifier):
         generation_args = {
             "max_new_tokens": 50,
             "return_full_text": False,
-            "temperature": 0,
             "do_sample": False,
-            "batch_size": 8,
+            "batch_size": 2,
         }
 
         # Get response
@@ -202,7 +200,7 @@ class GeminiClassifier(BaseClassifier):
     """
 
     def __init__(self):
-        self.client = genai.Client()
+        self.client = Client()
 
     def classify(self, text: str) -> str:
         """
