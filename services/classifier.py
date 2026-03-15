@@ -35,14 +35,13 @@ class ZeroShotClassifier(BaseClassifier):
         )
 
         self.candidate_labels = [
-            "selected",
-            "not selected",
             "invoice",
             "acceptance letter",
             "rejection letter",
             "contract",
             "report",
             "email",
+            "article",
             "resume",
             "legal",
             "technical",
