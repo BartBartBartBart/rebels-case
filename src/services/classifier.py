@@ -2,6 +2,10 @@ from transformers import pipeline
 from abc import ABC, abstractmethod
 from google.genai import types, Client
 
+from logger import get_logger
+
+logger = get_logger("services.classifier")
+
 
 class BaseClassifier(ABC):
     @abstractmethod
@@ -264,7 +268,11 @@ def get_classifier(type: str) -> BaseClassifier:
     elif type == "gemini":
         return GeminiClassifier()
     else:
+        logger.warning(
+            f"{type} is not a valid classifier."
+            f"Possible classifiers: zero-shot, phi4 or gemini."
+        )
         raise ValueError(
             f"{type} is not a valid classifier."
-            f"Possible classifiers: zero-shot, phi4 (Received {type})."
+            f"Possible classifiers: zero-shot, phi4 or gemini."
         )
