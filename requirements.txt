@@ -1,6 +1,7 @@
 fastapi
 google-genai
 langdetect
+psycopg2-binary
 pypdf
 python-docx
 sqlalchemy

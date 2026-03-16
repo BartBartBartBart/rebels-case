@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime
-from database import Base
 import datetime
+
+from database import Base
 
 
 class Doc(Base):
@@ -13,22 +14,22 @@ class Doc(Base):
     __tablename__ = "docs"
 
     id = Column(Integer, primary_key=True, index=True)
-    filename = Column(String, nullable=False, unique=True)
-    author = Column(String)
-    title = Column(String)
-    subject = Column(String)
-    keywords = Column(String)
-    language = Column(String)
+    filename = Column(String(255), nullable=False, unique=True)
+    author = Column(String(50))
+    title = Column(String(100))
+    subject = Column(String(100))
+    keywords = Column(String(100))
+    language = Column(String(10))
     created = Column(DateTime, default=datetime.datetime.now())
     modified = Column(DateTime, default=datetime.datetime.now())
-    file_type = Column(String)
+    file_type = Column(String(10))
     file_size = Column(Integer)
     paragraph_count = Column(Integer)
     table_count = Column(Integer)
     section_count = Column(Integer)
     word_count = Column(Integer)
-    created_with = Column(String)
-    label = Column(String, default="unlabeled")  # For classification results
+    created_with = Column(String(100))
+    label = Column(String(100), default="unlabeled")  # For classification results
 
     def __repr__(self):
         return (

@@ -1,17 +1,19 @@
-# Base image — Python version
 FROM python:3.13-slim
 
-# Set working directory inside container
 WORKDIR /app
 
-# Copy and install dependencies first (layer caching — faster rebuilds)
+# Install system dependencies needed by psycopg2 and other packages
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the code
-COPY . .
+COPY src/ .
 
-# Setup an app user so the container doesn't run as the root user
+# Setup user (not root)
 RUN mkdir -p /app/.cache/huggingface \
     && adduser --disabled-password --no-create-home appuser \
     && chown -R appuser:appuser /app
@@ -21,8 +23,6 @@ ENV HF_HOME=/app/.cache/huggingface
 
 USER appuser
 
-# Expose the port
 EXPOSE 8000
 
-# Command to run the app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
