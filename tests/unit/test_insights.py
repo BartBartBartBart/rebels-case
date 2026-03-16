@@ -1,10 +1,23 @@
+from pathlib import Path
+
 from docx import Document
 from fpdf import FPDF
 
 from services.insights import extract_metadata
 
 
-def test_extract_metadata_txt(tmp_path):
+def test_extract_metadata_txt(tmp_path: Path) -> None:
+    """
+    Validates the extraction of metadata from .txt files.
+
+    Args:
+        tmp_path (Path): Temporary path provided by pytest.
+    Returns:
+        None.
+    Raises:
+        AssertionError: If the metadata isn't extracted correctly.
+    """
+
     file = tmp_path / "test.txt"
     file.write_text("Dit is een Nederlands testdocument.")
 
@@ -17,7 +30,18 @@ def test_extract_metadata_txt(tmp_path):
     assert metadata["language"] == "nl"
 
 
-def test_extract_metadata_docx(tmp_path):
+def test_extract_metadata_docx(tmp_path: Path) -> None:
+    """
+    Validates the extraction of metadata from .docx files.
+
+    Args:
+        tmp_path (Path): Temporary path provided by pytest.
+    Returns:
+        None.
+    Raises:
+        AssertionError: If the metadata isn't extracted correctly.
+    """
+
     docx_file = tmp_path / "test.docx"
     doc = Document()
     doc.add_paragraph("This is a test document")
@@ -34,7 +58,18 @@ def test_extract_metadata_docx(tmp_path):
     assert metadata["table_count"] == 0
 
 
-def test_extract_metadata_pdf(tmp_path):
+def test_extract_metadata_pdf(tmp_path: Path) -> None:
+    """
+    Validates the extraction of metadata from .pdf files.
+
+    Args:
+        tmp_path (Path): Temporary path provided by pytest.
+    Returns:
+        None.
+    Raises:
+        AssertionError: If the metadata isn't extracted correctly.
+    """
+
     pdf_file = tmp_path / "test.pdf"
     pdf = FPDF()
     pdf.add_page()
