@@ -1,0 +1,30 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: test
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_test:5432/documents_test
+    depends_on:
+      db_test:
+        condition: service_healthy
+    command: ["pytest", "tests/", "-v"]
+    volumes:
+      - ./data:/app/data
+      - ./tests:/app/tests
+
+  db_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: documents_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d documents_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s

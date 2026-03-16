@@ -1,8 +1,11 @@
 fastapi
 google-genai
+# httpx
 langdetect
 psycopg2-binary
 pypdf
+# pytest
+# pytest-asyncio
 python-docx
 sqlalchemy
 --extra-index-url https://download.pytorch.org/whl/cpu

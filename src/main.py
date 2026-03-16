@@ -34,6 +34,5 @@ def folder_classify(
     return {
         "folder": folder_path,
         "num_files": output["num_files"],
-        "new_classifications": output["new_classifications"],
-        "already_classified": output["already_classified"],
+        "classifications": output["classifications"],
     }
