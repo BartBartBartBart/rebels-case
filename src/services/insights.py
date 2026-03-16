@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from db_model import Doc
 from services.classifier import BaseClassifier
+from logger import get_logger
+
+logger = get_logger("services.insights")
 
 
 def read(file: Path) -> str:
@@ -27,6 +30,7 @@ def read(file: Path) -> str:
     elif file.suffix.lower() == ".txt":
         return file.read_text(encoding="utf-8")
     else:
+        logger.waning(f"Can't read unsupported file {file.suffix.lower()}.")
         raise ValueError(f"Can't read unsupported file {file.suffix.lower()}.")
 
 
@@ -45,15 +49,14 @@ def scan_folder(folder_path: str) -> list[Path]:
 
     # Recursively scan for files in dir and subdirs
     for file in Path(folder_path).rglob("*.*"):
-        print(file)
-        # Docx files
+
         if file.is_file() and file.suffix.lower() in supported_files:
-            print(f"Found document: {file}")
+            logger.info(f"Found document: {file}.")
             files.append(file)
 
         # Other files
         elif file.is_file():
-            print(f"Skipping unsupported file: {file}")
+            logger.info(f"Skipping unsupported file: {file}")
 
     return files
 
@@ -75,12 +78,12 @@ def upsert_doc_metadata(db: Session, metadata: dict):
         # Update existing entry
         for key, value in metadata.items():
             setattr(existing_doc, key, value)
-        print(f"Updated existing document: {metadata['filename']}")
+        logger.info(f"Updated existing document: {metadata['filename']}")
     else:
         # Create new entry
         new_doc = Doc(**metadata)
         db.add(new_doc)
-        print(f"Added new document: {metadata['filename']}")
+        logger.info(f"Added new document: {metadata['filename']}")
 
 
 def extract_docx(file: Path) -> dict:
@@ -210,7 +213,7 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
             the ingested documents.
     """
 
-    print(f"Ingesting documents from folder: {folder_path}")
+    logger.info(f"Ingesting documents from folder: {folder_path}")
 
     # Find all files in folder
     files = scan_folder(folder_path)
@@ -223,14 +226,14 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
 
         if doc_entry:
             # Extract metadata from database instead
-            print("Extracting metadata from database.")
+            logger.info("Extracting metadata from database.")
             metadata = {}
             for col in Doc.__table__.columns:
                 if getattr(doc_entry, col.name) is not None:
                     metadata[col.name] = getattr(doc_entry, col.name)
         else:
             # Extract metadata from file
-            print("Extracting metadata from file.")
+            logger.debug("Extracting metadata from file.")
             metadata = extract_metadata(file=file)
             upsert_doc_metadata(db, metadata)
 
@@ -265,7 +268,7 @@ def get_folder_classifications(
             a dictionary of all files in the directory that were already labelled.
     """
 
-    print(f"Classifying documents in folder: {folder_path}")
+    logger.info(f"Classifying documents in folder: {folder_path}")
 
     # Find all files in folder
     files = scan_folder(folder_path)
@@ -283,7 +286,7 @@ def get_folder_classifications(
                 texts.append(read(file))
             else:
                 already_classified[filename] = doc_entry.label
-                print(
+                logger.info(
                     f"Document {filename} already classified as {doc_entry.label}. "
                     f"Skipping classification."
                 )
