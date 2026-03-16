@@ -309,10 +309,9 @@ def get_folder_classifications(
 
     db.commit()
 
-    return {
-        "num_files": len(files),
-        "new_classifications": {
-            filename: label for filename, label in zip(filenames, pred_labels)
-        },
-        "already_classified": already_classified,
+    classifications = {
+        filename: label for filename, label in zip(filenames, pred_labels)
     }
+    classifications.update(already_classified)
+
+    return {"num_files": len(files), "classifications": classifications}

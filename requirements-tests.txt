@@ -1,0 +1,5 @@
+fpdf
+httpx
+pytest
+pytest-asyncio
+python-docx

@@ -3,6 +3,15 @@ import sys
 
 
 def get_logger(name: str) -> logging.Logger:
+    """
+    Retrieves the logger.
+
+    Args:
+        name (str): Name for the logger.
+    Returns:
+        logging.Logger: The logger instance.
+    """
+
     logger = logging.getLogger(name)
 
     if not logger.handlers:
