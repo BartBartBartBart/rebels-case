@@ -1,21 +1,23 @@
 services:
   app:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     volumes:
       - ../data:/app/data
       - hf_cache:/app/.cache/huggingface
-    env_file:
-      - ../.env
     depends_on:
       db:
         condition: service_healthy
 
   db:
     image: postgres:16-alpine
+    env_file:
+    - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -23,11 +25,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rebels -d documents"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d documents"]
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 5s
 
 volumes:
   hf_cache:
