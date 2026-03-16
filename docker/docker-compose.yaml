@@ -17,9 +17,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: rebels
-      POSTGRES_PASSWORD: rebels
-      POSTGRES_DB: documents
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +27,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 10s
+      start_period: 5s
 
 volumes:
   hf_cache:
