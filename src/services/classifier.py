@@ -1,6 +1,8 @@
 from transformers import pipeline
 from abc import ABC, abstractmethod
 from google.genai import types, Client
+import os
+import torch
 
 from logger import get_logger
 
@@ -30,11 +32,11 @@ class ZeroShotClassifier(BaseClassifier):
     - Lower quality labels
     """
 
-    def __init__(self):
+    def __init__(self, device: int):
         self.classifier = pipeline(
             "zero-shot-classification",
             model="MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli",
-            device=-1,  # cpu
+            device=device,
         )
 
         self.candidate_labels = [
@@ -99,11 +101,11 @@ class Phi4MiniClassifier(BaseClassifier):
     - Slower inference
     """
 
-    def __init__(self):
+    def __init__(self, device: int):
         self.model = pipeline(
             "text-generation",
             model="microsoft/Phi-4-mini-instruct",
-            device=-1,  # cpu
+            device=device,
             trust_remote_code=True,
         )
 
@@ -260,11 +262,21 @@ def get_classifier(type: str) -> BaseClassifier:
     Returns:
         BaseClassifier: The selected classifier.
     """
+    device_env = os.getenv("TORCH_DEVICE", "auto")
+    if device_env == "auto":
+        device = 0 if torch.cuda.is_available() else -1
+    elif device_env == "cuda":
+        device = 0
+    elif device_env == "cpu":
+        device = -1
+    else:
+        logger.warning(f"Invalid TORCH_DEVICE value: {device_env}. Defaulting to auto.")
+        device = 0 if torch.cuda.is_available() else -1
 
     if type == "zero-shot":
-        return ZeroShotClassifier()
+        return ZeroShotClassifier(device)
     elif type == "phi4":
-        return Phi4MiniClassifier()
+        return Phi4MiniClassifier(device)
     elif type == "gemini":
         return GeminiClassifier()
     else:
