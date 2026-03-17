@@ -119,8 +119,13 @@ You can spin up the app container by running:
 ```bash
 docker compose up
 ```
-You can interact with the API endpoints at [http://127.0.0.1:8000/docs#/](http://127.0.0.1:8000/docs#/).  
-You can provide a path to your folder for both endpoints (for example, "data/Company_A").
+You can interact with the API endpoints at [http://127.0.0.1:8000/docs#/](http://127.0.0.1:8000/docs#/):
+- Click on one of the endpoints.
+- Click 'try it out'.
+- In the field `folder_path`, input the path to your data. For example, 'data/Company_A'.
+- Click execute. This should return the insights/classifications for all .docx, .pdf and .txt files in your folder.
+
+To test your own data, you can add files to the `data/` directory.
 
 To stop the container, run:
 ```bash
