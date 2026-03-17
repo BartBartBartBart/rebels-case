@@ -233,7 +233,7 @@ def get_folder_insights(folder_path: str, db: Session) -> dict:
                     metadata[col.name] = getattr(doc_entry, col.name)
         else:
             # Extract metadata from file
-            logger.debug("Extracting metadata from file.")
+            logger.info("Extracting metadata from file.")
             metadata = extract_metadata(file=file)
             upsert_doc_metadata(db, metadata)
 
