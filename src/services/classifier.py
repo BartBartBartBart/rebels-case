@@ -1,8 +1,6 @@
 from transformers import pipeline
 from abc import ABC, abstractmethod
 from google.genai import types, Client
-import os
-import torch
 
 from logger import get_logger
 
@@ -262,16 +260,7 @@ def get_classifier(type: str) -> BaseClassifier:
     Returns:
         BaseClassifier: The selected classifier.
     """
-    device_env = os.getenv("TORCH_DEVICE", "auto")
-    if device_env == "auto":
-        device = 0 if torch.cuda.is_available() else -1
-    elif device_env == "cuda":
-        device = 0
-    elif device_env == "cpu":
-        device = -1
-    else:
-        logger.warning(f"Invalid TORCH_DEVICE value: {device_env}. Defaulting to auto.")
-        device = 0 if torch.cuda.is_available() else -1
+    device = -1  # Force cpu
 
     if type == "zero-shot":
         return ZeroShotClassifier(device)
