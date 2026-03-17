@@ -104,6 +104,13 @@ sed -i 's/POSTGRES_USER=.*/POSTGRES_USER=<user>/' .env
 # Replace <password> with your password
 sed -i 's/POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=<password>/' .env
 ```
+By default, the code runs on GPU if it's available. To force GPU or CPU, set `TORCH_DEVICE` in `.env` to cuda or cpu, respectively: 
+```bash
+# For GPU
+sed -i 's/TORCH_DEVICE=.*/TORCH_DEVICE=cuda/' .env
+# For CPU
+sed -i 's/TORCH_DEVICE=.*/TORCH_DEVICE=cpu/' .env
+```
 ## Running the app
 The app runs with: 
 ```bash
